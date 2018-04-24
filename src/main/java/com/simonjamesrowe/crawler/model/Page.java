@@ -4,6 +4,7 @@ import java.util.List;
 
 public class Page extends AbstractWebElement {
 
+  private String name;
   private String title;
   private List<WebElement> contents;
 
@@ -21,5 +22,13 @@ public class Page extends AbstractWebElement {
 
   public void setContents(List<WebElement> contents) {
     this.contents = contents;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 }

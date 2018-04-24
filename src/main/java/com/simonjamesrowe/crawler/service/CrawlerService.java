@@ -33,20 +33,27 @@ public class CrawlerService {
   }
 
   public Page crawl(String uri) throws XPathExpressionException {
-    Document xmlDocument = crawlerDao.webContent(uri);
-    Node title =
-        (Node) xPath.compile(XPATH_TITLE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODE);
+
     Page page = new Page();
     page.setUri(uri);
+    crawl(uri, page);
+    return page;
+  }
+
+  private void crawl(String uri, Page page) throws XPathExpressionException {
+    Document xmlDocument = crawlerDao.webContent(uri);
+    if (xmlDocument == null) {
+      return;
+    }
+    Node title =
+            (Node) xPath.compile(XPATH_TITLE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODE);
     page.setTitle(title.getTextContent());
     NodeList nodeList =
         (NodeList)
             xPath.compile(XPATH_LINK_IMAGE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODESET);
-
     if (nodeList.getLength() > 0) {
       page.setContents(new ArrayList<>());
     }
-
     for (int i = 0; i < nodeList.getLength(); i++) {
       Node node = nodeList.item(i);
       if (IMAGE.equalsIgnoreCase(node.getNodeName())) {
@@ -55,18 +62,28 @@ public class CrawlerService {
         addPageElement(uri, page, node);
       }
     }
-
-    return page;
   }
 
-  private void addPageElement(String uri, Page page, Node node) {
+  private void addPageElement(String uri, Page page, Node node) throws XPathExpressionException {
     String href = node.getAttributes().getNamedItem("href").getNodeValue();
     if (!href.contains("#")){
       Page newPage = new Page();
-      newPage.setUri(getAbsoluteUri(uri, href));
-      newPage.setTitle(node.getTextContent());
+      href = getAbsoluteUri(uri, href);
+      newPage.setUri(href);
+      newPage.setName(node.getTextContent());
+      if (internalPage(uri,getAbsoluteUri(uri, href))) {
+        crawl(href, newPage);
+      }
       page.getContents().add(newPage);
     }
+  }
+
+  protected boolean internalPage(String uri, String absoluteUri) {
+    int domainPathSeperator = uri.indexOf("/", 7);
+    if (domainPathSeperator > -1) {
+      uri = uri.substring(0, domainPathSeperator);
+    }
+    return absoluteUri.startsWith(uri);
   }
 
   private void addImageElement(String uri, Page page, Node node) {
