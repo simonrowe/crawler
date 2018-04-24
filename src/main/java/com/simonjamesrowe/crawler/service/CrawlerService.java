@@ -17,7 +17,12 @@ import java.util.ArrayList;
 public class CrawlerService {
 
   private static final String XPATH_TITLE_SELECTOR = "//head/title";
-  private static final String XPATH_IMAGE_SELECTOR = "//img";
+  private static final String XPATH_IMAGE_SELECTOR = "//img[@src]";
+  private static final String XPATH_ANCHOR_SELECTOR = "//a[@href]";
+  private static final String ANCHOR = "a";
+  private static final String IMAGE = "img";
+
+  private static final String XPATH_LINK_IMAGE_SELECTOR = String.format("%s|%s",XPATH_IMAGE_SELECTOR, XPATH_ANCHOR_SELECTOR);
 
   private XPath xPath;
 
@@ -27,7 +32,7 @@ public class CrawlerService {
     this.xPath = XPathFactory.newInstance().newXPath();
   }
 
-  public WebElement crawl(String uri) throws XPathExpressionException {
+  public Page crawl(String uri) throws XPathExpressionException {
     Document xmlDocument = crawlerDao.webContent(uri);
     Node title =
         (Node) xPath.compile(XPATH_TITLE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODE);
@@ -36,7 +41,7 @@ public class CrawlerService {
     page.setTitle(title.getTextContent());
     NodeList nodeList =
         (NodeList)
-            xPath.compile(XPATH_IMAGE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODESET);
+            xPath.compile(XPATH_LINK_IMAGE_SELECTOR).evaluate(xmlDocument, XPathConstants.NODESET);
 
     if (nodeList.getLength() > 0) {
       page.setContents(new ArrayList<>());
@@ -44,12 +49,30 @@ public class CrawlerService {
 
     for (int i = 0; i < nodeList.getLength(); i++) {
       Node node = nodeList.item(i);
-      Image image = new Image();
-      image.setUri(getAbsoluteUri(uri, node.getAttributes().getNamedItem("src").getNodeValue()));
-      page.getContents().add(image);
+      if (IMAGE.equalsIgnoreCase(node.getNodeName())) {
+        addImageElement(uri, page, node);
+      } else {
+        addPageElement(uri, page, node);
+      }
     }
 
     return page;
+  }
+
+  private void addPageElement(String uri, Page page, Node node) {
+    String href = node.getAttributes().getNamedItem("href").getNodeValue();
+    if (!href.contains("#")){
+      Page newPage = new Page();
+      newPage.setUri(getAbsoluteUri(uri, href));
+      newPage.setTitle(node.getTextContent());
+      page.getContents().add(newPage);
+    }
+  }
+
+  private void addImageElement(String uri, Page page, Node node) {
+    Image image = new Image();
+    image.setUri(getAbsoluteUri(uri, node.getAttributes().getNamedItem("src").getNodeValue()));
+    page.getContents().add(image);
   }
 
   protected String getAbsoluteUri(String uri, String src) {

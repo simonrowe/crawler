@@ -18,6 +18,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.BDDMockito.eq;
 import static org.mockito.BDDMockito.given;
 
@@ -55,6 +56,55 @@ public class CrawlerServiceTest {
     assertEquals(
         "http://www.example.com/us.jpg",
         page.getContents().stream().filter(pc -> pc instanceof Image).findFirst().get().getUri());
+  }
+
+  @Test
+  public void testLinksAndImagesOnSinglePage()  throws Exception{
+    String uri = "http://www.example.com";
+    given(crawlerDao.webContent(eq(uri))).willReturn(pageContent("home.html"));
+    Page page  = crawlerService.crawl(uri);
+
+    assertEquals("http://www.example.com", page.getUri());
+    assertEquals("Example.com - A great example of simplicity", page.getTitle());
+    assertNotNull(page.getContents());
+    assertTrue(page.getContents().size() >= 1);
+    assertEquals(
+            "http://www.example.com/us.jpg",
+            page.getContents().stream().filter(pc -> pc instanceof Image).findFirst().get().getUri());
+    Page about = findPage(page, "http://www.example.com/about.html");
+    assertNotNull(about);
+    assertEquals("http://www.example.com/about.html", about.getUri());
+    assertEquals("About Us", about.getTitle());
+    assertNull(about.getContents());
+
+    Page events = findPage(page, "http://www.example.com/events");
+    assertNotNull(events);
+    assertEquals("http://www.example.com/events", events.getUri());
+    assertEquals("Events", events.getTitle());
+    assertNull(events.getContents());
+
+    Page staff = findPage(page, "http://www.example.com/staff");
+    assertNotNull(staff);
+    assertEquals("http://www.example.com/staff", staff.getUri());
+    assertEquals("Staff", staff.getTitle());
+    assertNull(staff.getContents());
+
+    //site crawler does not include anchors
+    Page sectionOne = findPage(page, "http://www.example.com/#sectionOne");
+    assertNull(sectionOne);
+
+    Page external = findPage(page, "http://www.external.com/externalLink");
+    assertNotNull(external);
+    assertEquals("http://www.external.com/externalLink", external.getUri());
+    assertEquals("External Link", external.getTitle());
+    assertNull(external.getContents());
+
+  }
+
+
+
+  private Page findPage(Page page, String link) {
+    return (Page) page.getContents().stream().filter(c -> c instanceof Page && c.getUri().equalsIgnoreCase(link)).findFirst().orElse(null);
   }
 
   @Test
